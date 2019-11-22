@@ -3,8 +3,8 @@ title: "Final Project Draft"
 output: html_document
 ---
 
-```{r setup, include=FALSE, message=FALSE, warning=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, comment=FALSE, results=FALSE)
 library(dplyr)
 library(fs)
 library(rstanarm)
@@ -43,7 +43,7 @@ clean_2017 <- joined %>%
 
 ```{r 2017 graphs/charts}
 #manipulation of data for graphs/regressions
-graph <- joined %>%
+regression_data <- joined %>%
   mutate(cash = ifelse(pi == 1, 1, 0)) %>%
   filter(cash != "NA") %>%
   mutate(fast_food = ifelse(merch == 4, 1, 0)) %>%
@@ -52,16 +52,19 @@ graph <- joined %>%
   mutate(rest = ifelse(merch == 3, 1, 0))
   
 #model specification 1 w just 2017 data
-regression <- glm(cash ~ age + income_hh + gender + highest_education + cc_num + race_white + race_black + race_asian + race_other + hispaniclatino + amnt + time + fast_food + gas + services + rest + paypref_100plus + paypref_lt10 + paypref_10to25 + paypref_25to50 + paypref_50to100, data = graph, family = "binomial")
-summary(regression)
-rsq(regression)
+regression <- glm(cash ~ age + income_hh + gender + highest_education + cc_num + race_white + race_black + race_asian + race_other + hispaniclatino + amnt + time + fast_food + gas + services + rest + paypref_100plus + paypref_lt10 + paypref_10to25 + paypref_25to50 + paypref_50to100, data = regression_data, family = "binomial")
 
 #variables removed due to too many observations missing 
 #+ work_self accept_card + discount
 #predict(z_model, newdata = my_data, type = "response")
 
+#data manipulation for graph
+graph <- joined %>%
+  mutate(cash = ifelse(pi == 1, TRUE, FALSE)) %>%
+  filter(cash != "NA")
+
 #first attempts at graphing data
-ggplot(graph, aes_string(graph$age, fill = graph$cash)) + geom_density(position='fill', alpha = 0.5)
+ggplot(graph, aes_string(graph$age, fill = graph$cash)) + geom_density(position='fill', alpha = 0.5) + xlab("Age") + labs(fill="Use of Cash for Transactions", title = "The Relationship Between Age and Use of Cash", subtitle = "The Federal Reserve's 2017 Diary of Consumer Payment Choice") 
 
 #experimental graph
 #ggplot(graph, aes(x=time, y=amnt, color=merch)) + #geom_point(alpha = 0.75) + transition_time(time)
@@ -171,8 +174,6 @@ merged_2 <- merged %>%
 regression <- glm(cash ~ age + income_hh + gender + highest_education + cc_num + race_white + race_black + race_asian + race_other + amnt + year + fast_food + gas + services + rest + paypref_100plus + paypref_lt10 + paypref_10to25 + paypref_25to50 + paypref_50to100, data = merged_2, family = "binomial")
 
 #downloaded the stargazer package to export my regression table as a html file 
-stargazer(regression,
-type="html",
-out="regression.html")
+stargazer(regression, type="html", out="regression.html")
 
 ```
