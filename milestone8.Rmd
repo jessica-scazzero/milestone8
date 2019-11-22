@@ -1,0 +1,178 @@
+---
+title: "Final Project Draft"
+output: html_document
+---
+
+```{r setup, include=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(dplyr)
+library(fs)
+library(rstanarm)
+library(gganimate)
+library(tidyverse)
+library(rsq)
+library(jtools)
+library(stargazer)
+library(sjPlot)
+```
+
+
+
+```{r 2017 data}
+#2017 individual level data
+individual <- read_csv(file="Raw-Data/dcpc_2017_indlevel-csv.csv")
+
+#2017 transaction level data
+transaction <- read_csv(file="Raw-Data/dcpc_2017_tranlevel-csv.csv")
+```
+
+```{r 2017 merged/ cleaned data}
+#individual/transaction joined data
+joined <- transaction %>%
+  left_join(individual, by = "prim_key")
+
+# Notes from my session with Sacha -
+#m1 <- lm(y ~ statedpref, data = joined)
+#joined$residual <- residuals(m1)
+
+#cleaned 2017 data
+clean_2017 <- joined %>%
+  select(age, income_hh, gender, highest_education, cc_num, race_white, race_black, race_asian, race_other, hispaniclatino, amnt, date, time, paypref_100plus, paypref_lt10, paypref_10to25, paypref_25to50, paypref_50to100, work_employed, work_occupation, work_self, pi, merch, homeowner, type)
+
+```
+
+```{r 2017 graphs/charts}
+#manipulation of data for graphs/regressions
+graph <- joined %>%
+  mutate(cash = ifelse(pi == 1, 1, 0)) %>%
+  filter(cash != "NA") %>%
+  mutate(fast_food = ifelse(merch == 4, 1, 0)) %>%
+  mutate(gas = ifelse(merch == 2, 1, 0)) %>%
+  mutate(services = ifelse(merch == 6, 1, 0)) %>%
+  mutate(rest = ifelse(merch == 3, 1, 0))
+  
+#model specification 1 w just 2017 data
+regression <- glm(cash ~ age + income_hh + gender + highest_education + cc_num + race_white + race_black + race_asian + race_other + hispaniclatino + amnt + time + fast_food + gas + services + rest + paypref_100plus + paypref_lt10 + paypref_10to25 + paypref_25to50 + paypref_50to100, data = graph, family = "binomial")
+summary(regression)
+rsq(regression)
+
+#variables removed due to too many observations missing 
+#+ work_self accept_card + discount
+#predict(z_model, newdata = my_data, type = "response")
+
+#first attempts at graphing data
+ggplot(graph, aes_string(graph$age, fill = graph$cash)) + geom_density(position='fill', alpha = 0.5)
+
+#experimental graph
+#ggplot(graph, aes(x=time, y=amnt, color=merch)) + #geom_point(alpha = 0.75) + transition_time(time)
+
+```
+
+
+```{r 2016 data}
+#loaded in 2016 data
+data_2016 <- read_csv(file="Raw-Data/dcpc-2016-public-data-csv.csv")
+
+#cleaned 2016 data
+clean_2016 <- data_2016 %>%
+drop_na(tran) %>%
+  rename(gender = male) %>%
+  select(age, income_hh, gender, highest_education, cc_num, race_white, race_black, race_asian, race_other, hispaniclatino, amnt, date, time, paypref_100plus, paypref_lt10, paypref_10to25, paypref_25to50, paypref_50to100, work_employed, work_occupation, work_self, pi, submerch, homeowner, type, carry_cc, carry_chk, carry_csh, carry_dc, enough_cash, e_exp_csh, storedcash_amnt, storedcash_amnt_payments, storedcash_amnt_savings,  denom_100_stored, denom_10_stored, denom_1_stored, denom_20_stored, denom_2_stored, denom_50_stored, denom_5_stored) %>%
+  mutate(merch = ifelse(submerch %in% c(8,9), 3,
+                 ifelse(submerch == 10, 2,
+                 ifelse(submerch %in% c(6,7), 4,
+                 ifelse(submerch %in% c(3,5,11), 1,
+                 ifelse(submerch %in% c(12,13,14,15,19,20,21,25,27,29,33), 5,
+                 ifelse(submerch %in% c(26,35,42,43), 7,
+                 ifelse(submerch %in% c(38,23), 13, 
+                 ifelse(submerch %in% c(16,17,18,28,44), 6,
+                 ifelse(submerch == 22, 9,
+                 ifelse(submerch %in% c(24,36), 10,
+                 ifelse(submerch %in% c(32,40,41), 11,
+                 ifelse(submerch %in% c(31,34,37), 12,
+                 ifelse(submerch == 39, 14,
+                 ifelse(submerch == 4, 15,
+                 ifelse(submerch %in% c(1,2), 18, 
+                 ifelse(submerch == 30, 20, 0
+                 )))))))))))))))))
+
+#2016 - submerch, storedcash amnt
+```
+  
+```{r 2015 data}
+#loaded in 2015 data
+data_2015 <- read_csv(file="Raw-Data/dcpc-2015-public-data-csv.csv")
+
+#cleaned 2015 data
+clean_2015 <- data_2015 %>%
+  rename(gender = male) %>%
+  select(age, income_hh, gender, race_white, race_black, race_asian, race_other, amnt, date, time, paypref_100plus, paypref_lt10, paypref_10to25, paypref_25to50, paypref_50to100, work_employed, work_self, pi, submerch, homeowner, type, carry_cc, carry_chk, carry_csh, carry_dc, enough_cash, e_exp_csh, storedcash_amnt, storedcash_amnt_payments, storedcash_amnt_savings,  denom_100_stored, denom_10_stored, denom_1_stored, denom_20_stored, denom_2_stored, denom_50_stored, denom_5_stored) %>%
+  mutate(merch = ifelse(submerch %in% c(3,5,7), 1,
+                 ifelse(submerch == 6, 2,
+                 ifelse(submerch %in% c(10,11), 3,
+                 ifelse(submerch == 9, 4,
+                 ifelse(submerch %in% c(8,15,16,17,21,23,25,29), 5,
+                 ifelse(submerch %in% c(12,13,14), 6,
+                 ifelse(submerch %in% c(22,31), 7,
+                 ifelse(submerch == 19, 9,
+                 ifelse(submerch == 18, 10,
+                 ifelse(submerch %in% c(27,30,33), 12, 
+                 ifelse(submerch %in% c(20,34), 13,
+                 ifelse(submerch == 4, 15,
+                 ifelse(submerch %in% c(1,2), 18,
+                 ifelse(submerch == 26, 20, 0
+                 
+                        )))))))))))))))
+                  
+#2015 - no cc_num, no hispaniclatino no work_occupation,, submerch, storedcash_amnt, storedcash_amnt_payments, storedcash_amnt_savings,  denom_100_stored, denom_10_stored, denom_1_stored, denom_20_stored, denom_2_stored, denom_50_stored, denom_5_stored
+
+#dropped highest_education due to the majority of values missing and corrupted data column overall
+
+
+```
+
+```{r merged data}
+#merged 2017 and 2016 data
+twoyears <- clean_2017 %>%
+  full_join(clean_2016)
+
+#merged 2017, 2016 and 2015 data
+merged <- twoyears %>%
+full_join(clean_2015)
+
+#added a new column year to the merged data set
+merged <- merged %>%
+mutate(year = format(as.Date(date, format = "%m/%d/%Y"), "%Y"))
+
+#saved the data as a csv
+write.csv(merged, file = "merged.csv")
+
+#created the plot that I used in my shiny app 
+plot <- merged %>%
+  filter(highest_education == 13) %>%
+  filter(pi <= 7,
+         pi >0) %>%
+  group_by(pi) %>%
+  count() %>%
+  ggplot(aes(x=factor(pi), y=n)) +  geom_col() +  labs(title = "Frequency of Payment Methods Used", x= "Payment Method", y = "Count") + scale_x_discrete(labels = c("1" = "Cash", "2" = "Check", "3" = "Credit Card", "4" = "Debit Card", "5" = "Prepaid/Gift", "6" = "Bank Account", "7" = "Online Payment")) + theme(axis.text.x=element_text(angle=45, hjust=1))
+plot
+```
+
+```{r regression models}
+#added a few binary variables that I used in my regression specification
+merged_2 <- merged %>%
+  mutate(cash = ifelse(pi == 1, 1, 0)) %>%
+  mutate(fast_food = ifelse(merch == 4, 1, 0)) %>%
+  mutate(gas = ifelse(merch == 2, 1, 0)) %>%
+  mutate(services = ifelse(merch == 6, 1, 0)) %>%
+  mutate(rest = ifelse(merch == 3, 1, 0))
+
+#same regression specification as above but with the merged data set
+regression <- glm(cash ~ age + income_hh + gender + highest_education + cc_num + race_white + race_black + race_asian + race_other + amnt + year + fast_food + gas + services + rest + paypref_100plus + paypref_lt10 + paypref_10to25 + paypref_25to50 + paypref_50to100, data = merged_2, family = "binomial")
+
+#downloaded the stargazer package to export my regression table as a html file 
+stargazer(regression,
+type="html",
+out="regression.html")
+
+```
