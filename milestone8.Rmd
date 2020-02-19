@@ -37,7 +37,8 @@ joined <- transaction %>%
 
 #cleaned 2017 data
 clean_2017 <- joined %>%
-  select(age, income_hh, gender, highest_education, cc_num, race_white, race_black, race_asian, race_other, hispaniclatino, amnt, date, time, paypref_100plus, paypref_lt10, paypref_10to25, paypref_25to50, paypref_50to100, work_employed, work_occupation, work_self, pi, merch, homeowner, type)
+  select(prim_key, age, income_hh, gender, highest_education, cc_num, race_white, race_black, race_asian, race_other, hispaniclatino, amnt, date, time, paypref_100plus, paypref_lt10, paypref_10to25, paypref_25to50, paypref_50to100, work_employed, work_occupation, work_self, pi, merch, homeowner, type) %>%
+mutate(prim_key = prim_key + 30000000)
 
 ```
 
@@ -80,7 +81,7 @@ data_2016 <- read_csv(file="Raw-Data/dcpc-2016-public-data-csv.csv")
 clean_2016 <- data_2016 %>%
 drop_na(tran) %>%
   rename(gender = male) %>%
-  select(age, income_hh, gender, highest_education, cc_num, race_white, race_black, race_asian, race_other, hispaniclatino, amnt, date, time, paypref_100plus, paypref_lt10, paypref_10to25, paypref_25to50, paypref_50to100, work_employed, work_occupation, work_self, pi, submerch, homeowner, type, carry_cc, carry_chk, carry_csh, carry_dc, enough_cash, e_exp_csh, storedcash_amnt, storedcash_amnt_payments, storedcash_amnt_savings,  denom_100_stored, denom_10_stored, denom_1_stored, denom_20_stored, denom_2_stored, denom_50_stored, denom_5_stored) %>%
+  select(prim_key, age, income_hh, gender, highest_education, cc_num, race_white, race_black, race_asian, race_other, hispaniclatino, amnt, date, time, paypref_100plus, paypref_lt10, paypref_10to25, paypref_25to50, paypref_50to100, work_employed, work_occupation, work_self, pi, submerch, homeowner, type, carry_cc, carry_chk, carry_csh, carry_dc, enough_cash, e_exp_csh, storedcash_amnt, storedcash_amnt_payments, storedcash_amnt_savings,  denom_100_stored, denom_10_stored, denom_1_stored, denom_20_stored, denom_2_stored, denom_50_stored, denom_5_stored) %>%
   mutate(merch = ifelse(submerch %in% c(8,9), 3,
                  ifelse(submerch == 10, 2,
                  ifelse(submerch %in% c(6,7), 4,
@@ -104,12 +105,14 @@ drop_na(tran) %>%
   
 ```{r 2015 data}
 #loaded in 2015 data
-data_2015 <- read_csv(file="Raw-Data/dcpc-2015-public-data-csv.csv")
+data_2015 <- read_csv(file="Raw-Data/dcpc-2015-public-data-csv.csv", col_types = cols(highest_education = col_integer()))
 
 #cleaned 2015 data
 clean_2015 <- data_2015 %>%
   rename(gender = male) %>%
-  select(age, income_hh, gender, race_white, race_black, race_asian, race_other, amnt, date, time, paypref_100plus, paypref_lt10, paypref_10to25, paypref_25to50, paypref_50to100, work_employed, work_self, pi, submerch, homeowner, type, carry_cc, carry_chk, carry_csh, carry_dc, enough_cash, e_exp_csh, storedcash_amnt, storedcash_amnt_payments, storedcash_amnt_savings,  denom_100_stored, denom_10_stored, denom_1_stored, denom_20_stored, denom_2_stored, denom_50_stored, denom_5_stored) %>%
+  rename(corrupted = highest_education) %>%
+  rename(highest_education = highest_education_gfk) %>%
+  select(prim_key, age, income_hh, gender, highest_education, race_white, race_black, race_asian, race_other, amnt, date, time, paypref_100plus, paypref_lt10, paypref_10to25, paypref_25to50, paypref_50to100, work_employed, work_self, pi, submerch, homeowner, type, carry_cc, carry_chk, carry_csh, carry_dc, enough_cash, e_exp_csh, storedcash_amnt, storedcash_amnt_payments, storedcash_amnt_savings,  denom_100_stored, denom_10_stored, denom_1_stored, denom_20_stored, denom_2_stored, denom_50_stored, denom_5_stored) %>%
   mutate(merch = ifelse(submerch %in% c(3,5,7), 1,
                  ifelse(submerch == 6, 2,
                  ifelse(submerch %in% c(10,11), 3,
@@ -125,11 +128,17 @@ clean_2015 <- data_2015 %>%
                  ifelse(submerch %in% c(1,2), 18,
                  ifelse(submerch == 26, 20, 0
                  
-                        )))))))))))))))
-                  
+                        ))))))))))))))) %>%
+  mutate(date = as.Date(date, "%d%b%Y"))
+
+check <- merged %>%
+  filter(year == "2015") %>%
+  select(merch)
 #2015 - no cc_num, no hispaniclatino no work_occupation,, submerch, storedcash_amnt, storedcash_amnt_payments, storedcash_amnt_savings,  denom_100_stored, denom_10_stored, denom_1_stored, denom_20_stored, denom_2_stored, denom_50_stored, denom_5_stored
 
 #dropped highest_education due to the majority of values missing and corrupted data column overall
+
+#found highest_education_gfk variable that was not corrupted, changed the name to highest_education and highest_education corrupted variable to corrupted
 
 
 ```
@@ -137,15 +146,33 @@ clean_2015 <- data_2015 %>%
 ```{r merged data}
 #merged 2017 and 2016 data
 twoyears <- clean_2017 %>%
-  full_join(clean_2016)
+  full_join(clean_2016) %>%
+  mutate(date = as.Date(date, "%m/%d/%Y"))
+
+#merged 2017 and 2016 data w/ prim_key info
+
+twoyears_new <- clean_2017 %>%
+  full_join(clean_2016) %>%
+  mutate(date = as.Date(date, "%m/%d/%Y"))
 
 #merged 2017, 2016 and 2015 data
 merged <- twoyears %>%
 full_join(clean_2015)
 
+#merged 2017, 2016 and 2015 data w/ prim_key info
+
+merged_new <- twoyears_new %>%
+full_join(clean_2015)
+
 #added a new column year to the merged data set
 merged <- merged %>%
 mutate(year = format(as.Date(date, format = "%m/%d/%Y"), "%Y"))
+
+#added a new column year to the new merged data set
+
+merged_new <- merged_new %>%
+mutate(year = format(as.Date(date, format = "%m/%d/%Y"), "%Y"))
+
 
 #saved the data as a csv
 write.csv(merged, file = "merged.csv")
@@ -170,10 +197,22 @@ merged_2 <- merged %>%
   mutate(services = ifelse(merch == 6, 1, 0)) %>%
   mutate(rest = ifelse(merch == 3, 1, 0))
 
+#added a few binary variables that I used in my regression specification to new merged data
+
+merged_new_2 <- merged_new %>%
+  mutate(cash = ifelse(pi == 1, 1, 0)) %>%
+  mutate(fast_food = ifelse(merch == 4, 1, 0)) %>%
+  mutate(gas = ifelse(merch == 2, 1, 0)) %>%
+  mutate(services = ifelse(merch == 6, 1, 0)) %>%
+  mutate(rest = ifelse(merch == 3, 1, 0))
+
+write.csv(merged_new_2, file = "final_micro_data.csv")
+
 #same regression specification as above but with the merged data set
 regression <- glm(cash ~ age + income_hh + gender + highest_education + cc_num + race_white + race_black + race_asian + race_other + amnt + year + fast_food + gas + services + rest + paypref_100plus + paypref_lt10 + paypref_10to25 + paypref_25to50 + paypref_50to100, data = merged_2, family = "binomial")
 
 #downloaded the stargazer package to export my regression table as a html file 
-stargazer(regression, type="html", out="regression.html")
+stargazer(regression, type="html", dep.var.labels   = "Cash",  covariate.labels = c("Age", "Income Level", "Gender", "Education Level", "Number of Credit Cards", "Race - White", "Race - Black", "Race - Asian", "Race - Other", "Transacton Amount", "Year2017", "Fast Food", "Gas", "Services", "Restaurants", "Pref. for Cash $100+", "Pref. for Cash <$10", "Pref. for Cash $10-$25", "Pref. for Cash $25 - $50", "Pref. for Cash $50 - $100"), out="regression.html")
+
 
 ```
