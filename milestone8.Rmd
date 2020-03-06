@@ -24,6 +24,7 @@ individual <- read_csv(file="Raw-Data/dcpc_2017_indlevel-csv.csv")
 
 #2017 transaction level data
 transaction <- read_csv(file="Raw-Data/dcpc_2017_tranlevel-csv.csv")
+
 ```
 
 ```{r 2017 merged/ cleaned data}
@@ -37,8 +38,7 @@ joined <- transaction %>%
 
 #cleaned 2017 data
 clean_2017 <- joined %>%
-  select(prim_key, age, income_hh, gender, highest_education, cc_num, race_white, race_black, race_asian, race_other, hispaniclatino, amnt, date, time, paypref_100plus, paypref_lt10, paypref_10to25, paypref_25to50, paypref_50to100, work_employed, work_occupation, work_self, pi, merch, homeowner, type) %>%
-mutate(prim_key = prim_key + 30000000)
+  select(prim_key, age, income_hh, gender, highest_education, cc_num, race_white, race_black, race_asian, race_other, hispaniclatino, amnt, date, time, paypref_100plus, paypref_lt10, paypref_10to25, paypref_25to50, paypref_50to100, work_employed, work_occupation, work_self, pi, merch, homeowner, type) 
 
 ```
 
@@ -105,13 +105,14 @@ drop_na(tran) %>%
   
 ```{r 2015 data}
 #loaded in 2015 data
-data_2015 <- read_csv(file="Raw-Data/dcpc-2015-public-data-csv.csv", col_types = cols(highest_education = col_integer()))
+data_2015 <- read_csv(file="Raw-Data/dcpc-2015-public-data-csv.csv", col_types = cols(highest_education = col_integer())) %>%
+mutate_at(vars(highest_education, highest_education_gfk), ~replace_na(., 0)) %>%
+rename(highest_education_uas = highest_education) %>%
+mutate(highest_education = highest_education_uas + highest_education_gfk) 
 
 #cleaned 2015 data
 clean_2015 <- data_2015 %>%
   rename(gender = male) %>%
-  rename(corrupted = highest_education) %>%
-  rename(highest_education = highest_education_gfk) %>%
   select(prim_key, age, income_hh, gender, highest_education, race_white, race_black, race_asian, race_other, amnt, date, time, paypref_100plus, paypref_lt10, paypref_10to25, paypref_25to50, paypref_50to100, work_employed, work_self, pi, submerch, homeowner, type, carry_cc, carry_chk, carry_csh, carry_dc, enough_cash, e_exp_csh, storedcash_amnt, storedcash_amnt_payments, storedcash_amnt_savings,  denom_100_stored, denom_10_stored, denom_1_stored, denom_20_stored, denom_2_stored, denom_50_stored, denom_5_stored) %>%
   mutate(merch = ifelse(submerch %in% c(3,5,7), 1,
                  ifelse(submerch == 6, 2,
@@ -129,7 +130,8 @@ clean_2015 <- data_2015 %>%
                  ifelse(submerch == 26, 20, 0
                  
                         ))))))))))))))) %>%
-  mutate(date = as.Date(date, "%d%b%Y"))
+  mutate(date = as.Date(date, "%d-%b-%y")) %>%
+  arrange(desc(prim_key))
 
 check <- merged %>%
   filter(year == "2015") %>%
@@ -204,7 +206,21 @@ merged_new_2 <- merged_new %>%
   mutate(fast_food = ifelse(merch == 4, 1, 0)) %>%
   mutate(gas = ifelse(merch == 2, 1, 0)) %>%
   mutate(services = ifelse(merch == 6, 1, 0)) %>%
-  mutate(rest = ifelse(merch == 3, 1, 0))
+  mutate(rest = ifelse(merch == 3, 1, 0)) %>%
+  mutate(value_100_stored = denom_100_stored * 100) %>%
+  mutate(value_50_stored = denom_50_stored * 50) %>%
+  mutate(value_20_stored = denom_20_stored * 20) %>%
+  mutate(value_10_stored = denom_10_stored * 10) %>%
+  mutate(value_5_stored = denom_5_stored * 5) %>%
+  mutate(value_2_stored = denom_2_stored * 2) %>%
+  mutate(value_1_stored = denom_1_stored * 1) %>%
+  mutate(total_cash_stored = value_100_stored + value_50_stored + value_20_stored + value_10_stored + value_2_stored + value_5_stored + value_1_stored) 
+
+
+a <- ggplot(merged_new_2, aes(x = denom_100_stored))
+
+a +  geom_histogram(bins = 30, color = "black", fill = "gray") +
+  geom_vline(aes(xintercept = mean(denom_100_stored)))
 
 write.csv(merged_new_2, file = "final_micro_data.csv")
 
@@ -214,5 +230,70 @@ regression <- glm(cash ~ age + income_hh + gender + highest_education + cc_num +
 #downloaded the stargazer package to export my regression table as a html file 
 stargazer(regression, type="html", dep.var.labels   = "Cash",  covariate.labels = c("Age", "Income Level", "Gender", "Education Level", "Number of Credit Cards", "Race - White", "Race - Black", "Race - Asian", "Race - Other", "Transacton Amount", "Year2017", "Fast Food", "Gas", "Services", "Restaurants", "Pref. for Cash $100+", "Pref. for Cash <$10", "Pref. for Cash $10-$25", "Pref. for Cash $25 - $50", "Pref. for Cash $50 - $100"), out="regression.html")
 
+
+```
+
+
+```{r individual level micro data}
+
+individual_micro_data_final <- merged_new_2 %>%
+group_by(prim_key, year) %>%
+summarize(age = mean(age),
+          income_hh = mean(income_hh),
+          gender = mean(gender),
+          highest_education = mean(highest_education),
+          cc_num = mean(cc_num),
+          race_white = mean(race_white),
+          race_black = mean(race_black),
+          race_asian = mean(race_asian),
+          race_other = mean(race_other),
+          work_employed = mean(work_employed), 
+          work_self = mean(work_self), 
+          work_occupation = mean(work_employed), 
+          homeowner = mean(homeowner),
+          paypref_100plus = mean(paypref_100plus),
+          paypref_50to100 = mean(paypref_50to100),
+          paypref_25to50 = mean(paypref_25to50),
+          paypref_10to25 = mean(paypref_10to25),
+          paypref_lt10 = mean(paypref_lt10),
+          denom_100_stored = mean(denom_100_stored),
+          denom_50_stored = mean(denom_50_stored),
+          denom_20_stored = mean(denom_20_stored),
+          denom_10_stored = mean(denom_10_stored),
+          denom_5_stored = mean(denom_5_stored),
+          denom_1_stored = mean(denom_1_stored),
+          value_100_stored = mean(value_100_stored),
+          value_50_stored = mean(value_50_stored),
+          value_20_stored = mean(value_20_stored),
+          value_10_stored = mean(value_10_stored),
+          value_5_stored = mean(value_5_stored),
+          value_2_stored = mean(value_2_stored),
+          value_1_stored = mean(value_1_stored),
+          total_cash_stored = mean(total_cash_stored),
+          storedcash_amnt = mean(storedcash_amnt))
+
+stats <- individual_micro_data_final %>%
+group_by(prim_key) %>%
+summarize(avg_total_cash_stored = mean(total_cash_stored, na.rm = TRUE)) %>%
+arrange(desc(avg_total_cash_stored)) %>%
+filter(avg_total_cash_stored != "NaN")
+ungroup() %>%
+summarize(total_cash_stored = mean(avg_total_cash_stored, na.rm = TRUE))
+
+stats_2 <- individual_micro_data_final %>%
+group_by(prim_key) %>%
+summarize(avg_storedcash_amnt = mean(storedcash_amnt, na.rm = TRUE)) %>%
+ungroup() %>%
+summarize(total_storedcash_amnt = mean(avg_storedcash_amnt, na.rm = TRUE))
+
+stats_3 <- individual_micro_data_final %>%
+group_by(prim_key) %>%
+summarize(avg_total_cash_stored = mean(total_cash_stored, na.rm = TRUE)) %>%
+ungroup() %>%
+summarize(total_cash_stored = median(avg_total_cash_stored, na.rm = TRUE))
+
+
+
+write.csv(individual_micro_data_final, file = "individual_micro_data_final.csv")
 
 ```
